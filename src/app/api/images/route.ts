@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import fs from 'fs/promises';
 import path from 'path';
+import generateImage from './azure_image';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+//const openai = new OpenAI({
+//  apiKey: process.env.OPENAI_API_KEY,
+//});
 
 const outputDir = path.resolve(process.cwd(), 'generated-images');
 
@@ -31,13 +32,13 @@ async function ensureOutputDirExists() {
 export async function POST(request: NextRequest) {
   console.log('Received POST request to /api/images');
 
-  if (!process.env.OPENAI_API_KEY) {
-    console.error('OPENAI_API_KEY is not set.');
-    return NextResponse.json(
-      { error: 'Server configuration error: API key not found.' },
-      { status: 500 }
-    );
-  }
+  //if (!process.env.OPENAI_API_KEY) {
+  //  console.error('OPENAI_API_KEY is not set.');
+  //  return NextResponse.json(
+  //    { error: 'Server configuration error: API key not found.' },
+  //    { status: 500 }
+  //  );
+  //}
 
   try {
     await ensureOutputDirExists();
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
       }
 
       console.log('Calling OpenAI generate with params:', params);
-      result = await openai.images.generate(params);
+      result = await generateImage(params);
 
     } else if (mode === 'edit') {
       const n = parseInt(formData.get('n') as string || '1', 10);
