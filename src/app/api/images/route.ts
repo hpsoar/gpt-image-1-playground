@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import fs from 'fs/promises';
 import path from 'path';
-import generateImage from './azure_image';
+import { generateImage, editImage } from './azure_image';
+import { File } from 'form-data';
+
 
 //const openai = new OpenAI({
 //  apiKey: process.env.OPENAI_API_KEY,
@@ -97,7 +99,10 @@ export async function POST(request: NextRequest) {
       
       const imageFiles: File[] = [];
       for (const [key, value] of formData.entries()) {
-        if (key.startsWith('image_') && value instanceof File) {
+        console.log(key);
+        console.log(value);
+        console.log(typeof value);
+        if (key.startsWith('image_') && value) {
           imageFiles.push(value);
         }
       }
@@ -126,7 +131,7 @@ export async function POST(request: NextRequest) {
           image: `[${imageFiles.map(f => f.name).join(', ')}]`, 
           mask: maskFile ? maskFile.name : 'N/A'
       });
-      result = await openai.images.edit(params);
+      result = await editImage(params);
 
     } else {
       return NextResponse.json({ error: 'Invalid mode specified' }, { status: 400 });

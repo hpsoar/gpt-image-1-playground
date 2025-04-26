@@ -1,6 +1,8 @@
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
+import { File } from 'form-data';
+
 
 // 定义环境变量类型
 interface Env {
@@ -32,6 +34,14 @@ interface GenerateImageParams {
     n?: number;
 }
 
+interface EditImageParams {
+    prompt: string;
+    image: File[],
+    size?: '1024x1024' | '1024x1792' | '1792x1024';
+    quality?: 'medium' | 'standard' | 'hd';
+    n?: number;
+}
+
 // 环境变量配置（建议使用dotenv或直接在运行环境配置）
 const env: Env = {
     AZURE_API_KEY: process.env.AZURE_API_KEY || '',
@@ -45,7 +55,7 @@ const azureConfig = {
 };
 
 // 生成图片函数
-async function generateImage(params: GenerateImageParams): Promise<ImageGeneration[]> {
+export async function generateImage(params: GenerateImageParams): Promise<ImageGeneration[]> {
     try {
         const url = `${env.AZURE_BASE_URL}/openai/deployments/${azureConfig.deployment}/images/generations?api-version=${azureConfig.apiVersion}`;
         
@@ -106,4 +116,73 @@ async function generateImage(params: GenerateImageParams): Promise<ImageGenerati
     }
 }
 
-export default generateImage
+
+// 生成图片函数
+export async function editImage(params: EditImageParams): Promise<ImageGeneration[]> {
+    try {
+        const url = `${env.AZURE_BASE_URL}/openai/deployments/${azureConfig.deployment}/images/edits?api-version=${azureConfig.apiVersion}`;
+        
+        const form = new FormData();
+        form.append('image', params.image[0], params.image[0].name);
+        //form.append('mask', params.mask, params.mask.name);
+        form.append('prompt', params.prompt);
+
+        console.log('params', params);
+
+         const apiData = {
+            prompt: params.prompt,
+            image: params.image[0],
+        }
+
+
+        console.log('Calling OpenAI generate with params:', url);
+        console.log('Calling OpenAI generate with params:', env.AZURE_API_KEY);
+        console.log('Calling OpenAI generate with params:', apiData);
+        
+        const response = await axios.post<ApiResponse>(url,  form, {
+            headers: {
+                'api-key': env.AZURE_API_KEY
+            }
+        });
+
+        if (response.data.error) {
+            throw new Error(`API Error: ${response.data.error.message}`);
+        }
+
+        const b64Data = response.data.data[0].b64_json;
+        if (!b64Data) {
+            throw new Error('No image data received');
+        }
+
+        // 使用 path.join 处理特殊字符和跨平台路径
+        const targetDir = path.join(
+          process.cwd(), 
+          'src/app/api/images', 
+          'azure_image.ts [app-route] (ecmascript)'
+        );
+        const outputPath = path.join(targetDir, 'generated_image.png');
+
+        // 创建目录（递归创建缺失的父目录）
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true }); // [6,9](@ref)
+        }
+
+        // 解码并保存图片
+        const buffer = Buffer.from(b64Data, 'base64');
+        fs.writeFileSync(outputPath, buffer);
+        
+        console.log(`Image saved to: ${outputPath}`);
+
+        return response.data;
+    } catch (error) {
+        if (error instanceof Error) {
+            console.error('Error editing image:', error.message);
+            console.error('Error editing image:', error);
+        } else {
+            console.error('Unknown error occurred:', error);
+        }
+        return undefined;
+    }
+}
+
+
